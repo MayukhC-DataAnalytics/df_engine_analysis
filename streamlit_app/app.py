@@ -258,7 +258,12 @@ def _generate_explanation(chart_title: str, context: str, data_summary: str) -> 
 
 def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") -> None:
     """Renders a '🤖 Explain this in plain English' button under a chart."""
-    if st.button("🤖 Explain this in plain English", key=f"explain_btn_{key}"):
+    if st.button(
+        "🤖 Explain this in plain English", key=f"explain_btn_{key}",
+        help="Sends this chart's current numbers to a free open-source AI model "
+             "(Llama 3.3) and returns a short, jargon-free summary. Only runs when "
+             "clicked -- never automatically.",
+    ):
         if "groq" not in st.secrets or not st.secrets["groq"].get("api_key"):
             st.warning(
                 "AI explanations need a (free) Groq API key added under "
@@ -332,21 +337,54 @@ all_loads = sorted(raw_readings_all["engine_load_percent"].unique().tolist())
 with st.sidebar:
     st.header("⚙️ Business Assumptions")
     st.caption("Applies to every cost, ROI, and compliance figure in this app.")
-    fuel_price = st.number_input("Fuel price ($/kg)", min_value=0.0, value=1.10, step=0.05)
-    hours = st.number_input("Operating hours / year", min_value=0, value=4000, step=100)
-    rated_power = st.number_input("Rated power (kW)", min_value=1, value=1000, step=50)
-    nox_limit = st.number_input("NOx regulatory/contractual limit (g/kWh)", min_value=0.0, value=14.4, step=0.1)
-    carbon_price = st.number_input("Carbon price ($/ton CO2)", min_value=0.0, value=85.0, step=5.0)
+    fuel_price = st.number_input(
+        "Fuel price ($/kg)", min_value=0.0, value=1.10, step=0.05,
+        help="What you pay per kilogram of fuel delivered. This single number drives "
+             "every dollar figure in the app -- raise it to see how exposed your cost "
+             "is to fuel-price swings.",
+    )
+    hours = st.number_input(
+        "Operating hours / year", min_value=0, value=4000, step=100,
+        help="How many hours a year this engine actually runs. More hours means more "
+             "fuel burned, so annual cost scales directly with this number.",
+    )
+    rated_power = st.number_input(
+        "Rated power (kW)", min_value=1, value=1000, step=50,
+        help="The engine's maximum power output. Used to convert fuel use from "
+             "grams-per-kWh (an efficiency rate) into a real annual total in kg and $.",
+    )
+    nox_limit = st.number_input(
+        "NOx regulatory/contractual limit (g/kWh)", min_value=0.0, value=14.4, step=0.1,
+        help="The NOx ceiling you must stay under -- a regulation or a contract term. "
+             "Anything above this shows as a red FAIL everywhere compliance is checked.",
+    )
+    carbon_price = st.number_input(
+        "Carbon price ($/ton CO2)", min_value=0.0, value=85.0, step=5.0,
+        help="What CO2 emissions cost you -- a carbon tax, an internal carbon price, or "
+             "an emissions-trading price. Set this to 0 if you want to ignore CO2 cost "
+             "entirely and only look at fuel cost.",
+    )
     co2_factor = st.number_input(
         "CO2 emission factor (kg CO2 / kg fuel)", min_value=0.0, value=3.15, step=0.05,
-        help="Default ~3.15 is a typical diesel figure. Edit if your fuel blend differs.",
+        help="How much CO2 comes out per kg of fuel burned. Default ~3.15 is a typical "
+             "diesel figure -- edit it if your fuel blend differs.",
     )
 
     st.divider()
     st.header("🔍 Data Filters")
     st.caption("Narrows every chart and recomputes the duty-cycle weighting live.")
-    selected_modes = st.multiselect("Combustion modes to include", all_modes, default=all_modes)
-    selected_loads = st.multiselect("Engine load points to include (%)", all_loads, default=all_loads)
+    selected_modes = st.multiselect(
+        "Combustion modes to include", all_modes, default=all_modes,
+        help="Uncheck a mode to remove it everywhere -- e.g. uncheck 'Diffusion' to see "
+             "what cost, efficiency, and compliance would look like if this engine never "
+             "used that combustion strategy.",
+    )
+    selected_loads = st.multiselect(
+        "Engine load points to include (%)", all_loads, default=all_loads,
+        help="Uncheck a load point to exclude it from every chart and from the "
+             "duty-cycle math -- e.g. uncheck 10% to see results assuming this engine "
+             "never idles at low load.",
+    )
 
     st.divider()
     st.caption(f"Dataset: {len(raw_readings_all):,} total readings (unfiltered).")
@@ -415,6 +453,9 @@ switching duty cycle or switching combustion mode saves more.
         baseline_cycle = st.selectbox(
             "Which duty cycle best represents your actual operation today?",
             live_duty_cycle_perf["cycle_name"].tolist(),
+            help="This becomes the 'baseline' everything else on this page compares "
+                 "against -- pick the one closest to how this engine is really operated, "
+                 "not necessarily the cheapest one.",
         )
         cycle_econ = add_cost_and_compliance(
             live_duty_cycle_perf, "weighted_bsfc_g_per_kwh", "weighted_nox_emissions",
@@ -512,6 +553,8 @@ strategy). Check the **Mode-Switching ROI** tab for the dollar value.
     metric = st.radio(
         "Metric", ["avg_thermal_efficiency_pct", "avg_bsfc_g_per_kwh", "avg_nox_emissions", "avg_target_score"],
         horizontal=True,
+        help="Switch which measure the bar chart below compares across the three "
+             "combustion modes.",
     )
     fig = px.bar(by_mode, x="combustion_mode", y=metric, color="combustion_mode", title=metric)
     st.plotly_chart(fig, use_container_width=True, key="mode_metric_chart")
@@ -651,7 +694,11 @@ a real engine -- the injection timing, pressure, and ratio values of the
 top rows are the settings worth reproducing.
         """,
     )
-    n = st.slider("How many rows", 5, 50, 10)
+    n = st.slider(
+        "How many rows", 5, 50, 10,
+        help="How many of the best-scoring individual readings to list below, "
+             "ranked highest target score first.",
+    )
     top_n = filtered.nlargest(n, "target_score")[
         ["reading_id", "engine_load_percent", "combustion_mode", "injection_timing_deg", "equivalence_ratio",
          "boost_pressure_bar", "thermal_efficiency_pct", "nox_emissions_g_per_kwh", "target_score"]
@@ -790,7 +837,9 @@ cycle before committing to the standard ISO test cycles.
     for col, (_, row) in zip(cols, live_engine_map.iterrows()):
         load = int(row["engine_load_percent"])
         user_weights[load] = col.number_input(
-            f"{load}% load", min_value=0.0, value=default_weights.get(load, 0.2), step=0.05, key=f"w_{load}"
+            f"{load}% load", min_value=0.0, value=default_weights.get(load, 0.2), step=0.05, key=f"w_{load}",
+            help=f"Roughly how much of this engine's running time is spent at {load}% load. "
+                 "The exact numbers don't need to add to 1 -- they're auto-scaled below.",
         )
 
     total_weight = sum(user_weights.values())
