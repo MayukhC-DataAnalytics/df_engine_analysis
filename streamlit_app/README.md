@@ -70,16 +70,28 @@ streamlit run app.py
 copy never accidentally gets committed.
 
 ## What viewers can actually do
-- Browse all 9 tabs mirroring every chart in `sql/dashboard_queries.sql`.
-- Move sliders on the **Duty Cycles & Cost** and **Mode-Switching ROI**
-  tabs (fuel price, operating hours, rated power, NOx limit) and see
-  dollar figures and PASS/FAIL compliance recompute instantly -- this math
-  runs in Python on the already-fetched data, so it's immediate, not a new
-  Databricks query per slider move.
-- Define their own custom duty cycle (any load-point weighting) on the
+- **One shared control panel (sidebar)**: fuel price, operating hours,
+  rated power, NOx limit, and carbon price apply to every cost/compliance
+  figure in the app -- change one number once, not nine times across tabs.
+- **Live data filters (sidebar)**: pick which combustion modes and which
+  load points count. Every module -- including the duty-cycle weighting
+  itself -- recomputes from the filtered data, so you can ask "what would
+  our fuel cost be if we eliminated Diffusion mode entirely?" and get a
+  real answer, not just a filtered chart.
+- **Executive Summary tab**: the one screen for a non-engineer -- current
+  annual cost, CO2 cost, compliance status, and a plain-language
+  recommendation on whether switching duty cycle or combustion mode saves
+  more.
+- **Every tab has a "📘 About this module" expander** explaining its
+  purpose, inputs, and how to read it for a business decision -- not just
+  engineering context.
+- Define a custom duty cycle (any load-point weighting) on the
   **Try Your Own Duty Cycle** tab and see it compared live against the
   three built-in ISO/illustrative cycles -- no dbt rebuild required for a
   one-off "what if" question.
+- All of this recomputes in Python from data fetched once per 10-minute
+  cache window, so moving a slider or filter is instant -- not a new
+  Databricks query every time.
 
 ## Reusing this for a different company's engine data
 1. Point your `profiles.yml` at the new data and run `dbt build` as usual
