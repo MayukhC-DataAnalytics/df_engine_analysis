@@ -388,7 +388,7 @@ switching duty cycle or switching combustion mode saves more.
             title="Annual Total Cost (Fuel + CO2) by Duty Cycle",
             color_discrete_map={"✅ PASS": "#2e7d32", "❌ FAIL": "#c62828"},
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="exec_cycle_cost_chart")
 
 # ============================================================================
 # MODULE 2: Combustion Modes
@@ -424,8 +424,8 @@ strategy). Check the **Mode-Switching ROI** tab for the dollar value.
         horizontal=True,
     )
     fig = px.bar(by_mode, x="combustion_mode", y=metric, color="combustion_mode", title=metric)
-    st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(by_mode, use_container_width=True, hide_index=True)
+    st.plotly_chart(fig, use_container_width=True, key="mode_metric_chart")
+    st.dataframe(by_mode, use_container_width=True, hide_index=True, key="mode_table")
 
 # ============================================================================
 # MODULE 3: Engine Load
@@ -450,14 +450,14 @@ fuel cost.
         title="Average BSFC vs. Engine Load",
         labels={"engine_load_percent": "Engine Load (%)", "avg_bsfc_g_per_kwh": "BSFC (g/kWh)"},
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="engine_load_bsfc_chart")
     fig2 = px.line(
         live_engine_map, x="engine_load_percent",
         y=["avg_nox_emissions", "avg_soot_emissions", "avg_co_emissions"],
         markers=True, title="Emissions vs. Engine Load",
     )
-    st.plotly_chart(fig2, use_container_width=True)
-    st.dataframe(live_engine_map.round(3), use_container_width=True, hide_index=True)
+    st.plotly_chart(fig2, use_container_width=True, key="engine_load_emissions_chart")
+    st.dataframe(live_engine_map.round(3), use_container_width=True, hide_index=True, key="engine_load_table")
 
 # ============================================================================
 # MODULE 4: Performance Categories
@@ -485,8 +485,8 @@ mode is operationally riskier than it looks from averages alone.
         .round(3)
     )
     fig = px.pie(by_category, names="target_category", values="number_of_readings", title="Share of Readings by Performance Category")
-    st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(by_category, use_container_width=True, hide_index=True)
+    st.plotly_chart(fig, use_container_width=True, key="category_pie_chart")
+    st.dataframe(by_category, use_container_width=True, hide_index=True, key="category_table")
 
 # ============================================================================
 # MODULE 5: Relationships
@@ -506,14 +506,14 @@ apparent pattern there as noise until confirmed on real measured data.
     )
     st.subheader("Air-Fuel Ratio vs. NOx")
     fig = px.scatter(filtered, x="equivalence_ratio", y="nox_emissions_g_per_kwh", color="combustion_mode", title="Equivalence Ratio vs. NOx")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="eq_ratio_scatter")
 
     st.subheader("Fuel Injection Pressure vs. NOx")
     fig2 = px.scatter(
         filtered, x="fuel_injection_pressure_bar", y="nox_emissions_g_per_kwh", color="combustion_mode",
         title="Fuel Injection Pressure vs. NOx", trendline="ols",
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, key="injection_pressure_scatter")
 
 # ============================================================================
 # MODULE 6: Top Performers
@@ -535,7 +535,7 @@ top rows are the settings worth reproducing.
         ["reading_id", "engine_load_percent", "combustion_mode", "injection_timing_deg", "equivalence_ratio",
          "boost_pressure_bar", "thermal_efficiency_pct", "nox_emissions_g_per_kwh", "target_score"]
     ]
-    st.dataframe(top_n, use_container_width=True, hide_index=True)
+    st.dataframe(top_n, use_container_width=True, hide_index=True, key="top_performers_table")
 
 # ============================================================================
 # MODULE 7: Duty Cycles & Cost
@@ -561,7 +561,7 @@ recalculates instantly.
             live_duty_cycle_perf, x="cycle_name", y="weighted_bsfc_g_per_kwh", color="industry",
             title="Weighted BSFC by Duty Cycle",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="duty_cycle_bsfc_chart")
 
         econ = add_cost_and_compliance(
             live_duty_cycle_perf, "weighted_bsfc_g_per_kwh", "weighted_nox_emissions",
@@ -573,13 +573,16 @@ recalculates instantly.
             "annual_total_cost_usd", "extra_annual_cost_vs_best_usd",
             "weighted_nox_emissions", "nox_compliance_status", "nox_pct_vs_limit",
         ]
-        st.dataframe(econ[display_cols].round(2).sort_values("annual_total_cost_usd"), use_container_width=True, hide_index=True)
+        st.dataframe(
+            econ[display_cols].round(2).sort_values("annual_total_cost_usd"),
+            use_container_width=True, hide_index=True, key="duty_cycle_cost_table",
+        )
         fig_cost = px.bar(
             econ.sort_values("annual_total_cost_usd"), x="cycle_name", y="annual_total_cost_usd",
             color="nox_compliance_status", title="Annual Total Cost (Fuel + CO2) by Duty Cycle",
             color_discrete_map={"✅ PASS": "#2e7d32", "❌ FAIL": "#c62828"},
         )
-        st.plotly_chart(fig_cost, use_container_width=True)
+        st.plotly_chart(fig_cost, use_container_width=True, key="duty_cycle_cost_chart")
 
 # ============================================================================
 # MODULE 8: Mode-Switching ROI
@@ -609,12 +612,15 @@ this is the detail behind that headline number, broken out per mode.
         "combustion_mode", "combustion_mode_description", "avg_bsfc_g_per_kwh", "avg_target_score",
         "annual_fuel_cost_usd", "annual_co2_cost_usd", "annual_total_cost_usd", "extra_annual_cost_vs_best_usd",
     ]
-    st.dataframe(mode_econ[display_cols].round(2).sort_values("annual_total_cost_usd"), use_container_width=True, hide_index=True)
+    st.dataframe(
+        mode_econ[display_cols].round(2).sort_values("annual_total_cost_usd"),
+        use_container_width=True, hide_index=True, key="mode_roi_table",
+    )
     fig = px.bar(
         mode_econ.sort_values("annual_total_cost_usd"), x="combustion_mode", y="annual_total_cost_usd",
         title="Annual Total Cost (Fuel + CO2) by Combustion Mode",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="mode_roi_chart")
 
 # ============================================================================
 # MODULE 9: Try Your Own Duty Cycle
@@ -683,4 +689,4 @@ cycle before committing to the standard ISO test cycles.
             compare.sort_values("weighted_bsfc_g_per_kwh"), x="cycle_name", y="weighted_bsfc_g_per_kwh",
             color="cycle_name", title="Your Cycle vs. the Built-In Duty Cycles",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="custom_cycle_compare_chart")
