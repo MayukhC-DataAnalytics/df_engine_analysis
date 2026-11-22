@@ -26,6 +26,7 @@ of the method, not as real engine facts -- this banner is repeated in the
 app itself so viewers see the same caveat.
 """
 
+import anthropic
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -193,6 +194,76 @@ def about(title: str, body: str) -> None:
     """Renders a consistent '📘 About this module' explainer block."""
     with st.expander(f"📘 About this module: {title}", expanded=False):
         st.markdown(body)
+
+
+# ============================================================================
+# MODULE: AI chart explanations
+# Purpose: an on-demand (button-triggered, never automatic) call to the
+# Claude API that turns a chart's actual underlying numbers into a short,
+# non-technical explanation. Button-triggered keeps API cost near zero for
+# viewers who never click it, and results are cached per (chart, data,
+# assumptions) so re-rendering the same state never re-calls the API.
+# ============================================================================
+
+
+@st.cache_resource
+def get_anthropic_client():
+    return anthropic.Anthropic(api_key=st.secrets["anthropic"]["api_key"])
+
+
+def _summarize_for_ai(df: pd.DataFrame, sample_rows: int = 15) -> str:
+    """Keeps the prompt small (and cheap) -- small tables go in full, large
+    ones go in as a random sample with a note, never as 1000+ raw rows."""
+    if len(df) <= sample_rows:
+        return df.round(3).to_csv(index=False)
+    sample = df.sample(sample_rows, random_state=1).round(3)
+    return f"(random sample of {sample_rows} out of {len(df)} rows)\n" + sample.to_csv(index=False)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _generate_explanation(chart_title: str, context: str, data_summary: str) -> str:
+    client = get_anthropic_client()
+    message = client.messages.create(
+        model="claude-haiku-5-5",
+        max_tokens=250,
+        system=(
+            "You explain business dashboard charts to a non-technical reader "
+            "(a manager, not an engineer). Be concise: 3-5 short sentences, "
+            "no jargon, plain English, end with one practical takeaway. If the "
+            "context mentions the data is synthetic/demo data, say so plainly "
+            "rather than stating the numbers as fact."
+        ),
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Chart title: {chart_title}\n"
+                    f"Business context: {context}\n\n"
+                    f"Underlying data:\n{data_summary}\n\n"
+                    "Explain what this chart shows and what it means for someone "
+                    "making a business decision."
+                ),
+            }
+        ],
+    )
+    return message.content[0].text
+
+
+def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") -> None:
+    """Renders a '🤖 Explain this in plain English' button under a chart."""
+    if st.button("🤖 Explain this in plain English", key=f"explain_btn_{key}"):
+        if "anthropic" not in st.secrets or not st.secrets["anthropic"].get("api_key"):
+            st.warning(
+                "AI explanations need an Anthropic API key added under "
+                "**Settings → Secrets** (see streamlit_app/README.md)."
+            )
+        else:
+            with st.spinner("Asking AI..."):
+                try:
+                    explanation = _generate_explanation(chart_title, context, _summarize_for_ai(df))
+                    st.info(explanation)
+                except Exception as exc:  # noqa: BLE001 -- surfaced to the viewer on purpose
+                    st.error(f"Could not get an AI explanation: {exc}")
 
 
 # ============================================================================
@@ -389,6 +460,13 @@ switching duty cycle or switching combustion mode saves more.
             color_discrete_map={"✅ PASS": "#2e7d32", "❌ FAIL": "#c62828"},
         )
         st.plotly_chart(fig, use_container_width=True, key="exec_cycle_cost_chart")
+        ai_explain(
+            "exec_cycle_cost", "Annual Total Cost (Fuel + CO2) by Duty Cycle",
+            cycle_econ[["cycle_name", "industry", "annual_fuel_cost_usd", "annual_co2_cost_usd",
+                        "annual_total_cost_usd", "nox_compliance_status"]],
+            context=f"Fuel price ${fuel_price}/kg, {hours} hrs/yr, {rated_power} kW rated power, "
+                    f"NOx limit {nox_limit} g/kWh, carbon price ${carbon_price}/ton CO2.",
+        )
 
 # ============================================================================
 # MODULE 2: Combustion Modes
@@ -426,6 +504,10 @@ strategy). Check the **Mode-Switching ROI** tab for the dollar value.
     fig = px.bar(by_mode, x="combustion_mode", y=metric, color="combustion_mode", title=metric)
     st.plotly_chart(fig, use_container_width=True, key="mode_metric_chart")
     st.dataframe(by_mode, use_container_width=True, hide_index=True, key="mode_table")
+    ai_explain(
+        "mode_metric", f"{metric} by Combustion Mode", by_mode,
+        context="Compares Diffusion, Homogeneous, and RCCI combustion modes on the selected metric.",
+    )
 
 # ============================================================================
 # MODULE 3: Engine Load
@@ -451,12 +533,21 @@ fuel cost.
         labels={"engine_load_percent": "Engine Load (%)", "avg_bsfc_g_per_kwh": "BSFC (g/kWh)"},
     )
     st.plotly_chart(fig, use_container_width=True, key="engine_load_bsfc_chart")
+    ai_explain(
+        "engine_load_bsfc", "Average BSFC vs. Engine Load", live_engine_map[["engine_load_percent", "avg_bsfc_g_per_kwh"]],
+        context="Fuel consumption per unit of work (BSFC, g/kWh) at each engine load point; lower is better.",
+    )
     fig2 = px.line(
         live_engine_map, x="engine_load_percent",
         y=["avg_nox_emissions", "avg_soot_emissions", "avg_co_emissions"],
         markers=True, title="Emissions vs. Engine Load",
     )
     st.plotly_chart(fig2, use_container_width=True, key="engine_load_emissions_chart")
+    ai_explain(
+        "engine_load_emissions", "Emissions vs. Engine Load",
+        live_engine_map[["engine_load_percent", "avg_nox_emissions", "avg_soot_emissions", "avg_co_emissions"]],
+        context="NOx, soot, and CO emissions (g/kWh) at each engine load point.",
+    )
     st.dataframe(live_engine_map.round(3), use_container_width=True, hide_index=True, key="engine_load_table")
 
 # ============================================================================
@@ -487,6 +578,10 @@ mode is operationally riskier than it looks from averages alone.
     fig = px.pie(by_category, names="target_category", values="number_of_readings", title="Share of Readings by Performance Category")
     st.plotly_chart(fig, use_container_width=True, key="category_pie_chart")
     st.dataframe(by_category, use_container_width=True, hide_index=True, key="category_table")
+    ai_explain(
+        "category_pie", "Share of Readings by Performance Category", by_category,
+        context="Breaks down all readings into performance buckets: Low, Moderate, High, Excellent.",
+    )
 
 # ============================================================================
 # MODULE 5: Relationships
@@ -507,6 +602,13 @@ apparent pattern there as noise until confirmed on real measured data.
     st.subheader("Air-Fuel Ratio vs. NOx")
     fig = px.scatter(filtered, x="equivalence_ratio", y="nox_emissions_g_per_kwh", color="combustion_mode", title="Equivalence Ratio vs. NOx")
     st.plotly_chart(fig, use_container_width=True, key="eq_ratio_scatter")
+    eq_corr = filtered["equivalence_ratio"].corr(filtered["nox_emissions_g_per_kwh"])
+    ai_explain(
+        "eq_ratio_scatter", "Equivalence Ratio vs. NOx",
+        filtered[["equivalence_ratio", "nox_emissions_g_per_kwh", "combustion_mode"]],
+        context=f"Scatter plot of air-fuel ratio vs. NOx emissions. Measured correlation in the current "
+                f"filtered data: {eq_corr:.2f} (1.0 = perfect relationship, 0 = no relationship).",
+    )
 
     st.subheader("Fuel Injection Pressure vs. NOx")
     fig2 = px.scatter(
@@ -514,6 +616,13 @@ apparent pattern there as noise until confirmed on real measured data.
         title="Fuel Injection Pressure vs. NOx", trendline="ols",
     )
     st.plotly_chart(fig2, use_container_width=True, key="injection_pressure_scatter")
+    inj_corr = filtered["fuel_injection_pressure_bar"].corr(filtered["nox_emissions_g_per_kwh"])
+    ai_explain(
+        "injection_pressure_scatter", "Fuel Injection Pressure vs. NOx",
+        filtered[["fuel_injection_pressure_bar", "nox_emissions_g_per_kwh", "combustion_mode"]],
+        context=f"Scatter plot of fuel injection pressure vs. NOx emissions. Measured correlation in the "
+                f"current filtered data: {inj_corr:.2f} (1.0 = perfect relationship, 0 = no relationship).",
+    )
 
 # ============================================================================
 # MODULE 6: Top Performers
@@ -536,6 +645,10 @@ top rows are the settings worth reproducing.
          "boost_pressure_bar", "thermal_efficiency_pct", "nox_emissions_g_per_kwh", "target_score"]
     ]
     st.dataframe(top_n, use_container_width=True, hide_index=True, key="top_performers_table")
+    ai_explain(
+        "top_performers", f"Top {n} Best-Performing Runs", top_n,
+        context="The individual engine readings with the highest overall target score under current filters.",
+    )
 
 # ============================================================================
 # MODULE 7: Duty Cycles & Cost
@@ -562,6 +675,12 @@ recalculates instantly.
             title="Weighted BSFC by Duty Cycle",
         )
         st.plotly_chart(fig, use_container_width=True, key="duty_cycle_bsfc_chart")
+        ai_explain(
+            "duty_cycle_bsfc", "Weighted BSFC by Duty Cycle",
+            live_duty_cycle_perf[["cycle_name", "industry", "application", "weighted_bsfc_g_per_kwh"]],
+            context="Same engine's fuel consumption (BSFC, g/kWh), weighted by how much time each duty "
+                    "cycle spends at each load point. Lower is better.",
+        )
 
         econ = add_cost_and_compliance(
             live_duty_cycle_perf, "weighted_bsfc_g_per_kwh", "weighted_nox_emissions",
@@ -583,6 +702,13 @@ recalculates instantly.
             color_discrete_map={"✅ PASS": "#2e7d32", "❌ FAIL": "#c62828"},
         )
         st.plotly_chart(fig_cost, use_container_width=True, key="duty_cycle_cost_chart")
+        ai_explain(
+            "duty_cycle_cost", "Annual Total Cost (Fuel + CO2) by Duty Cycle",
+            econ[["cycle_name", "industry", "annual_fuel_cost_usd", "annual_co2_cost_usd",
+                  "annual_total_cost_usd", "nox_compliance_status"]],
+            context=f"Fuel price ${fuel_price}/kg, {hours} hrs/yr, {rated_power} kW rated power, "
+                    f"NOx limit {nox_limit} g/kWh, carbon price ${carbon_price}/ton CO2.",
+        )
 
 # ============================================================================
 # MODULE 8: Mode-Switching ROI
@@ -621,6 +747,13 @@ this is the detail behind that headline number, broken out per mode.
         title="Annual Total Cost (Fuel + CO2) by Combustion Mode",
     )
     st.plotly_chart(fig, use_container_width=True, key="mode_roi_chart")
+    ai_explain(
+        "mode_roi", "Annual Total Cost (Fuel + CO2) by Combustion Mode",
+        mode_econ[["combustion_mode", "annual_fuel_cost_usd", "annual_co2_cost_usd",
+                   "annual_total_cost_usd", "extra_annual_cost_vs_best_usd"]],
+        context=f"If every engine ran one single combustion mode, this is the annual cost. "
+                f"Fuel price ${fuel_price}/kg, {hours} hrs/yr, {rated_power} kW rated power.",
+    )
 
 # ============================================================================
 # MODULE 9: Try Your Own Duty Cycle
@@ -690,3 +823,8 @@ cycle before committing to the standard ISO test cycles.
             color="cycle_name", title="Your Cycle vs. the Built-In Duty Cycles",
         )
         st.plotly_chart(fig, use_container_width=True, key="custom_cycle_compare_chart")
+        ai_explain(
+            "custom_cycle_compare", "Your Cycle vs. the Built-In Duty Cycles", compare,
+            context=f"Compares a user-defined duty cycle (weights: {normalized}) against the 3 built-in "
+                    f"ISO/illustrative duty cycles on weighted BSFC (g/kWh).",
+        )
