@@ -46,27 +46,30 @@ This is the step that keeps your token out of git entirely.
 
 3. Save. The app reboots automatically and should now connect.
 
-## 3b. (Optional) Add an Anthropic API key for the AI "explain this" buttons
-Every chart has a **🤖 Explain this in plain English** button. Without this
-key the rest of the dashboard works fine -- clicking the button just shows
-a reminder to add it.
+## 3b. (Optional) Add a free Groq API key for the AI "explain this" buttons
+Every chart has a **🤖 Explain this in plain English** button, powered by
+an open-source model (Meta's **Llama 3.3 70B**) hosted free by Groq -- no
+credit card required, unlike a metered API. Without this key the rest of
+the dashboard works fine -- clicking the button just shows a reminder to
+add it.
 
-1. Go to [console.anthropic.com](https://console.anthropic.com) → **Settings**
-   → **API Keys** → **Create Key**. Copy it (starts with `sk-ant-`).
+1. Go to [console.groq.com](https://console.groq.com) → sign in (GitHub or
+   Google login works) → **API Keys** → **Create API Key**. Copy it (starts
+   with `gsk_`).
 2. Add a second block to the same Streamlit Secrets box from step 3:
    ```toml
-   [anthropic]
-   api_key = "sk-ant-api03-..."
+   [groq]
+   api_key = "gsk_..."
    ```
 3. Save -- the app reboots again.
 
-**Cost control, by design**: explanations only run when a viewer clicks the
-button (never automatically on page load), use the cheap `claude-haiku-5-5`
-model with a 250-token cap, and are cached for an hour per (chart, data,
-assumptions) combination -- so the same click twice in a row doesn't call
-the API twice. A production deployment should still set a spending limit
-on the Anthropic API key (console.anthropic.com → **Settings** → **Limits**)
-since this app has no per-viewer rate limiting of its own.
+**Usage control, by design**: explanations only run when a viewer clicks
+the button (never automatically on page load), cap responses at 250
+tokens, and are cached for an hour per (chart, data, assumptions)
+combination -- so the same click twice in a row doesn't call the API
+twice. If a lot of viewers click explain buttons at once, Groq's free tier
+has a request-per-minute limit; the app catches that and shows "please
+wait a minute and try again" instead of a raw error.
 
 ## 4. Keep the SQL warehouse reachable
 - If you're on a **serverless** SQL warehouse, it auto-starts on the first
@@ -95,7 +98,7 @@ copy never accidentally gets committed.
 - **AI explanations on every chart**: click **🤖 Explain this in plain
   English** under any chart for a short, non-technical summary of what it
   shows, grounded in that chart's actual current numbers (not a canned
-  description) -- requires the optional Anthropic key from step 3b.
+  description) -- requires the optional free Groq key from step 3b.
 - **One shared control panel (sidebar)**: fuel price, operating hours,
   rated power, NOx limit, and carbon price apply to every cost/compliance
   figure in the app -- change one number once, not nine times across tabs.

@@ -26,7 +26,7 @@ of the method, not as real engine facts -- this banner is repeated in the
 app itself so viewers see the same caveat.
 """
 
-import anthropic
+import groq
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -198,21 +198,25 @@ def about(title: str, body: str) -> None:
 
 # ============================================================================
 # MODULE: AI chart explanations
-# Purpose: an on-demand (button-triggered, never automatic) call to the
-# Claude API that turns a chart's actual underlying numbers into a short,
-# non-technical explanation. Button-triggered keeps API cost near zero for
-# viewers who never click it, and results are cached per (chart, data,
-# assumptions) so re-rendering the same state never re-calls the API.
+# Purpose: an on-demand (button-triggered, never automatic) call to an
+# OPEN-SOURCE model (Meta's Llama 3.3 70B) hosted for free by Groq, that
+# turns a chart's actual underlying numbers into a short, non-technical
+# explanation. Groq's free tier needs no credit card, unlike a metered API
+# key. Button-triggered keeps usage near zero for viewers who never click
+# it, and results are cached per (chart, data, assumptions) so re-rendering
+# the same state never re-calls the API.
 # ============================================================================
+
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
 @st.cache_resource
-def get_anthropic_client():
-    return anthropic.Anthropic(api_key=st.secrets["anthropic"]["api_key"])
+def get_groq_client():
+    return groq.Groq(api_key=st.secrets["groq"]["api_key"])
 
 
 def _summarize_for_ai(df: pd.DataFrame, sample_rows: int = 15) -> str:
-    """Keeps the prompt small (and cheap) -- small tables go in full, large
+    """Keeps the prompt small (and fast) -- small tables go in full, large
     ones go in as a random sample with a note, never as 1000+ raw rows."""
     if len(df) <= sample_rows:
         return df.round(3).to_csv(index=False)
@@ -222,18 +226,21 @@ def _summarize_for_ai(df: pd.DataFrame, sample_rows: int = 15) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _generate_explanation(chart_title: str, context: str, data_summary: str) -> str:
-    client = get_anthropic_client()
-    message = client.messages.create(
-        model="claude-haiku-5-5",
+    client = get_groq_client()
+    completion = client.chat.completions.create(
+        model=GROQ_MODEL,
         max_tokens=250,
-        system=(
-            "You explain business dashboard charts to a non-technical reader "
-            "(a manager, not an engineer). Be concise: 3-5 short sentences, "
-            "no jargon, plain English, end with one practical takeaway. If the "
-            "context mentions the data is synthetic/demo data, say so plainly "
-            "rather than stating the numbers as fact."
-        ),
         messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You explain business dashboard charts to a non-technical reader "
+                    "(a manager, not an engineer). Be concise: 3-5 short sentences, "
+                    "no jargon, plain English, end with one practical takeaway. If the "
+                    "context mentions the data is synthetic/demo data, say so plainly "
+                    "rather than stating the numbers as fact."
+                ),
+            },
             {
                 "role": "user",
                 "content": (
@@ -243,18 +250,18 @@ def _generate_explanation(chart_title: str, context: str, data_summary: str) -> 
                     "Explain what this chart shows and what it means for someone "
                     "making a business decision."
                 ),
-            }
+            },
         ],
     )
-    return message.content[0].text
+    return completion.choices[0].message.content
 
 
 def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") -> None:
     """Renders a '🤖 Explain this in plain English' button under a chart."""
     if st.button("🤖 Explain this in plain English", key=f"explain_btn_{key}"):
-        if "anthropic" not in st.secrets or not st.secrets["anthropic"].get("api_key"):
+        if "groq" not in st.secrets or not st.secrets["groq"].get("api_key"):
             st.warning(
-                "AI explanations need an Anthropic API key added under "
+                "AI explanations need a (free) Groq API key added under "
                 "**Settings → Secrets** (see streamlit_app/README.md)."
             )
         else:
@@ -262,15 +269,11 @@ def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") 
                 try:
                     explanation = _generate_explanation(chart_title, context, _summarize_for_ai(df))
                     st.info(explanation)
-                except anthropic.APIStatusError as exc:
-                    if exc.status_code == 400 and "credit balance" in str(exc).lower():
-                        st.warning(
-                            "AI explanations are temporarily unavailable: the Anthropic API key's "
-                            "credit balance is too low. (App owner: add credits at "
-                            "console.anthropic.com → Settings → Billing.)"
-                        )
-                    else:
-                        st.error(f"Could not get an AI explanation (API error {exc.status_code}).")
+                except groq.RateLimitError:
+                    st.warning(
+                        "AI explanations hit the free tier's rate limit -- please wait a "
+                        "minute and try again."
+                    )
                 except Exception as exc:  # noqa: BLE001 -- surfaced to the viewer on purpose
                     st.error(f"Could not get an AI explanation: {exc}")
 
