@@ -1,0 +1,63 @@
+# ============================================================================
+# dbt_project.yml
+# This is dbt's "settings file" for this project. Every dbt project needs
+# exactly one of these, sitting in the top folder of the project.
+# ============================================================================
+
+name: 'df_engine_analysis'
+version: '1.0.0'
+config-version: 2
+
+# This must match the profile name in your profiles.yml (the file that
+# holds your Databricks connection details). See LEARN_ME_FIRST.md.
+profile: 'df_engine_analysis'
+
+# Where dbt should look for things, relative to this file.
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# ----------------------------------------------------------------------------
+# MODEL CONFIG
+# This is where we tell dbt HOW to build each folder of models.
+#
+# - "staging" models become VIEWS. A view is just a saved query -- it has
+#   no stored data of its own, it just re-reads the raw table every time
+#   someone queries it. That's fine here because staging only does light
+#   cleanup (renaming columns, fixing types), so it's cheap to recompute.
+#
+# - "marts" models become TABLES. A table physically stores its own copy
+#   of the data on disk. We want that for marts because dashboards will
+#   query them a lot, and we don't want to redo heavy joins/aggregations
+#   every single time someone opens a chart.
+#
+# NOTE: your Databricks workspace has its OWN catalog named `df_project`
+# (set via `catalog: df_project` in profiles.yml) -- it is not a schema
+# inside a shared "workspace" catalog. Inside that df_project catalog there
+# are THREE schemas:
+#   raw     -- seeds / raw-ish source data
+#   staging -- light cleanup views (stg_ models)
+#   mart    -- final tables for dashboards (dim_, fct_, mart_ models)
+# This must stay in sync with sql/dashboard_queries.sql, which reads from
+# df_project.<schema>.<table> -- if you change these +schema values, update
+# that file too.
+# ----------------------------------------------------------------------------
+models:
+  df_engine_analysis:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: mart
+
+seeds:
+  df_engine_analysis:
+    +schema: raw

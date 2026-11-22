@@ -1,0 +1,28 @@
+version: 2
+
+seeds:
+  - name: duty_cycles
+    description: >
+      Duty cycles: how much of its running time an engine spends at each load.
+      Each cycle_name is one duty cycle and its weights should add up to 1.
+      ISO8178_E3 and ISO8178_D2 are the standard test-cycle weights as shown in
+      published summaries (check them against the standard before publishing).
+      ILLUSTRATIVE_LIGHT_LOAD_GENSET is made up for demonstration only.
+    config:
+      column_types:
+        load_percent: int
+        weight: double
+    columns:
+      - name: cycle_name
+        tests: [not_null]
+      - name: load_percent
+        description: Engine load point, as a percent of maximum load.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mart_engine_map_by_load')
+                field: engine_load_percent
+      - name: weight
+        description: Share of running time spent at this load point (0 to 1).
+        tests: [not_null]

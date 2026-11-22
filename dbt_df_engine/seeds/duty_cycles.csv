@@ -1,0 +1,13 @@
+cycle_name,industry,application,load_percent,weight,basis
+ISO8178_E3,Marine,Propeller-law main or auxiliary engine,100,0.20,ISO 8178-4 type E3 (from published summaries)
+ISO8178_E3,Marine,Propeller-law main or auxiliary engine,75,0.50,ISO 8178-4 type E3 (from published summaries)
+ISO8178_E3,Marine,Propeller-law main or auxiliary engine,50,0.15,ISO 8178-4 type E3 (from published summaries)
+ISO8178_E3,Marine,Propeller-law main or auxiliary engine,25,0.15,ISO 8178-4 type E3 (from published summaries)
+ISO8178_D2,Power generation and marine auxiliary,Constant-speed generator set,100,0.05,ISO 8178-4 type D2 (from published summaries)
+ISO8178_D2,Power generation and marine auxiliary,Constant-speed generator set,75,0.25,ISO 8178-4 type D2 (from published summaries)
+ISO8178_D2,Power generation and marine auxiliary,Constant-speed generator set,50,0.30,ISO 8178-4 type D2 (from published summaries)
+ISO8178_D2,Power generation and marine auxiliary,Constant-speed generator set,25,0.30,ISO 8178-4 type D2 (from published summaries)
+ISO8178_D2,Power generation and marine auxiliary,Constant-speed generator set,10,0.10,ISO 8178-4 type D2 (from published summaries)
+ILLUSTRATIVE_LIGHT_LOAD_GENSET,Power generation,Lightly loaded generator (example only),10,0.50,ILLUSTRATIVE - made up for demonstration and not a standard
+ILLUSTRATIVE_LIGHT_LOAD_GENSET,Power generation,Lightly loaded generator (example only),25,0.30,ILLUSTRATIVE - made up for demonstration and not a standard
+ILLUSTRATIVE_LIGHT_LOAD_GENSET,Power generation,Lightly loaded generator (example only),50,0.20,ILLUSTRATIVE - made up for demonstration and not a standard

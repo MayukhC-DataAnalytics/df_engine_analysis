@@ -1,0 +1,13 @@
+logs/
+target/
+dbt_packages/
+profiles.yml
+.user.yml
+
+# Streamlit secrets -- never commit real Databricks credentials.
+.streamlit/secrets.toml
+streamlit_app/.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.pyc

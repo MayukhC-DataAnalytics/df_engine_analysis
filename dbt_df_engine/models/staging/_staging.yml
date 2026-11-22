@@ -1,0 +1,49 @@
+# ============================================================================
+# This file documents and TESTS the staging model.
+#
+# Tests are just assertions dbt runs for you with `dbt test`. If a test
+# fails, you know immediately that something is wrong with the data or
+# your SQL -- before it quietly breaks a dashboard.
+# ============================================================================
+version: 2
+
+models:
+  - name: stg_engine_readings
+    description: >
+      Cleaned, renamed version of the raw engine simulation data.
+      One row = one simulated engine operating condition.
+      NOTE 1: this dataset is SYNTHETIC (generated, not measured on a real engine).
+      NOTE 2: the source file does not state units. The unit suffixes in the
+      column names (g_per_kwh, bar, k, deg) are ASSUMPTIONS based on typical
+      engine practice and have not been confirmed with the data's author.
+    columns:
+      - name: reading_id
+        description: Surrogate key we generated ourselves (the raw data had no id).
+        tests:
+          - unique
+          - not_null
+
+      - name: combustion_mode
+        description: Which combustion strategy was simulated.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Diffusion', 'Homogeneous', 'RCCI']
+
+      - name: target_category
+        description: Plain-English performance bucket for target_score.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Low', 'Moderate', 'High', 'Excellent']
+
+      - name: engine_load_percent
+        description: Engine load, as a percent of max load, for this simulated run.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [10, 25, 50, 75, 100]
+                quote: false

@@ -1,0 +1,46 @@
+# ============================================================================
+# THIS FILE IS A TEMPLATE, NOT A REAL CONFIG FILE.
+#
+# dbt looks for its connection details in a file called profiles.yml that
+# lives OUTSIDE your project, at: C:\Users\MAYUKH\.dbt\profiles.yml
+# It lives outside the project on purpose -- it holds a secret access
+# token, and you never want secrets sitting inside a project folder that
+# might get shared, zipped up, or committed to git.
+#
+# STEPS (also explained in LEARN_ME_FIRST.md):
+#   1. Create the folder C:\Users\MAYUKH\.dbt\  if it doesn't exist.
+#   2. Copy this file there and rename it to profiles.yml
+#   3. Replace the <PLACEHOLDER> values below with your real values.
+# ============================================================================
+
+df_engine_analysis:                 # must match the `profile:` line in dbt_project.yml
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+
+      # Found in Databricks: top-right profile icon isn't it -- instead,
+      # go to your SQL Warehouse > "Connection details" tab.
+      # It looks like: <random-id>.cloud.databricks.com
+      host: <YOUR_WORKSPACE_HOSTNAME>
+
+      # Also on the SQL Warehouse "Connection details" tab, labeled "HTTP path".
+      # Looks like: /sql/1.0/warehouses/xxxxxxxxxxxxxxxx
+      http_path: <YOUR_WAREHOUSE_HTTP_PATH>
+
+      # Create this in Databricks: click your profile icon (top-right) >
+      # Settings > Developer > Access tokens > Generate new token.
+      # Copy it immediately -- Databricks only shows it to you once.
+      token: <YOUR_PERSONAL_ACCESS_TOKEN>
+
+      # The catalog everything lives in. This workspace has its own
+      # dedicated catalog named df_project -- run `SHOW CATALOGS;` in a
+      # SQL editor to confirm the exact name if you're not sure.
+      catalog: df_project
+
+      # Default schema, used only if a model doesn't specify one (every
+      # model here DOES specify one via +schema in dbt_project.yml: raw,
+      # staging, or mart). This value just needs to be something valid.
+      schema: mart
+
+      threads: 4

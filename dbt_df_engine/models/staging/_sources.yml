@@ -1,0 +1,38 @@
+# ============================================================================
+# SOURCES
+# A "source" tells dbt: "here's a raw table that already exists in
+# Databricks -- I didn't create it with dbt, I loaded it some other way
+# (in our case, by uploading the CSV through the Databricks UI)."
+#
+# Why bother declaring sources instead of just writing the catalog.schema
+# .table name directly in a model? Two reasons:
+#   1. If the raw table ever moves or gets renamed, you fix it in ONE place.
+#   2. You get a dependency graph: dbt now knows your staging model depends
+#      on this raw table, which powers `dbt docs` and `dbt run -s +model`.
+# ============================================================================
+version: 2
+
+sources:
+  - name: raw_engine_data
+    description: >
+      The "inbox" zone. These tables are raw CSV uploads with no cleaning
+      applied. dbt never writes to these -- it only reads from them.
+      NOTE: no `database:` key here, so dbt uses the catalog from the
+      `catalog:` field in your profiles.yml (df_project). This source's
+      `schema: raw` below is the schema INSIDE that df_project catalog --
+      upload your raw CSVs there, not into a catalog named "raw".
+    schema: raw                 # the SCHEMA (folder) inside the df_project catalog
+    tables:
+      - name: dual_fuel_engine_dataset
+        description: >
+          Original simulation results for a dual-fuel (diesel + gasoline)
+          engine. One row = one simulated operating condition. We load this
+          table for completeness, but we don't build on it directly because
+          the table below has everything it has, plus one more useful column.
+
+      - name: dual_fuel_engine_dataset_categorical
+        description: >
+          The SAME kind of simulation results, with one extra column:
+          Target_Category (Low / Moderate / High / Excellent), a plain-
+          English label for how good that operating point's Target_Score
+          was. This is the table all our models are built on.

@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: dim_combustion_mode
+    description: One row per combustion strategy, with a plain-English explanation.
+    columns:
+      - name: combustion_mode_id
+        tests: [unique, not_null]
+      - name: combustion_mode
+        tests: [unique, not_null]
+
+  - name: dim_target_category
+    description: One row per performance bucket (Low/Moderate/High/Excellent), with score ranges.
+    columns:
+      - name: target_category_id
+        tests: [unique, not_null]
+      - name: target_category
+        tests: [unique, not_null]
+
+  - name: fct_engine_readings
+    description: >
+      One row per simulated engine operating condition, with foreign keys
+      to dim_combustion_mode and dim_target_category.
+    columns:
+      - name: reading_id
+        tests: [unique, not_null]
+      - name: combustion_mode_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_combustion_mode')
+                field: combustion_mode_id
+      - name: target_category_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_target_category')
+                field: target_category_id
+
+  - name: mart_performance_by_mode
+    description: Dashboard-ready summary of average performance per combustion mode.
+
+  - name: mart_emissions_by_load_bucket
+    description: Dashboard-ready summary of average emissions/efficiency per engine load bucket.
+
+  - name: mart_target_category_summary
+    description: Dashboard-ready summary of readings grouped by performance category.
+
+  - name: mart_engine_map_by_load
+    description: >
+      Engine map: average results at each EXACT load point (10, 25, 50, 75, 100 percent).
+      Feeds the duty-cycle weighting. Built from synthetic data with assumed units.
+    columns:
+      - name: engine_load_percent
+        tests: [unique, not_null]
+
+  - name: mart_duty_cycle_performance
+    description: >
+      Weighted fuel use, efficiency and emissions for each duty cycle in the duty_cycles
+      seed: the same engine used in different ways. Demonstrates the method on synthetic data.
+    columns:
+      - name: cycle_name
+        tests: [unique, not_null]
