@@ -199,15 +199,19 @@ def about(title: str, body: str) -> None:
 # ============================================================================
 # MODULE: AI chart explanations
 # Purpose: an on-demand (button-triggered, never automatic) call to an
-# OPEN-SOURCE model (Meta's Llama 3.3 70B) hosted for free by Groq, that
-# turns a chart's actual underlying numbers into a short, non-technical
-# explanation. Groq's free tier needs no credit card, unlike a metered API
-# key. Button-triggered keeps usage near zero for viewers who never click
-# it, and results are cached per (chart, data, assumptions) so re-rendering
-# the same state never re-calls the API.
+# OPEN-SOURCE model (OpenAI's gpt-oss-20b, Apache 2.0 licensed open-weight
+# model) hosted for free by Groq, that turns a chart's actual underlying
+# numbers into a short, non-technical explanation. Groq's free tier needs
+# no credit card. NOTE: Groq moved Meta's Llama 3.x models to
+# Enterprise-only access (no longer available on the free or pay-as-you-go
+# tier) -- gpt-oss-20b is the closest free-tier equivalent as of writing;
+# check console.groq.com/docs/models if this 404s again, models get
+# added/retired there periodically. Button-triggered keeps usage near zero
+# for viewers who never click it, and results are cached per (chart, data,
+# assumptions) so re-rendering the same state never re-calls the API.
 # ============================================================================
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-20b"
 
 
 @st.cache_resource
@@ -261,7 +265,7 @@ def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") 
     if st.button(
         "🤖 Explain this in plain English", key=f"explain_btn_{key}",
         help="Sends this chart's current numbers to a free open-source AI model "
-             "(Llama 3.3) and returns a short, jargon-free summary. Only runs when "
+             "(gpt-oss-20b) and returns a short, jargon-free summary. Only runs when "
              "clicked -- never automatically.",
     ):
         if "groq" not in st.secrets or not st.secrets["groq"].get("api_key"):
@@ -278,6 +282,13 @@ def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") 
                     st.warning(
                         "AI explanations hit the free tier's rate limit -- please wait a "
                         "minute and try again."
+                    )
+                except groq.NotFoundError:
+                    st.error(
+                        f"The AI model `{GROQ_MODEL}` is no longer available on Groq "
+                        "(models get added/retired periodically). App owner: check "
+                        "console.groq.com/docs/models for a current free-tier model id "
+                        "and update GROQ_MODEL in app.py."
                     )
                 except Exception as exc:  # noqa: BLE001 -- surfaced to the viewer on purpose
                     st.error(f"Could not get an AI explanation: {exc}")

@@ -48,7 +48,7 @@ This is the step that keeps your token out of git entirely.
 
 ## 3b. (Optional) Add a free Groq API key for the AI "explain this" buttons
 Every chart has a **🤖 Explain this in plain English** button, powered by
-an open-source model (Meta's **Llama 3.3 70B**) hosted free by Groq -- no
+an open-source model (OpenAI's **gpt-oss-20b**, Apache 2.0 licensed) hosted free by Groq -- no
 credit card required, unlike a metered API. Without this key the rest of
 the dashboard works fine -- clicking the button just shows a reminder to
 add it.
