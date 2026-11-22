@@ -262,6 +262,15 @@ def ai_explain(key: str, chart_title: str, df: pd.DataFrame, context: str = "") 
                 try:
                     explanation = _generate_explanation(chart_title, context, _summarize_for_ai(df))
                     st.info(explanation)
+                except anthropic.APIStatusError as exc:
+                    if exc.status_code == 400 and "credit balance" in str(exc).lower():
+                        st.warning(
+                            "AI explanations are temporarily unavailable: the Anthropic API key's "
+                            "credit balance is too low. (App owner: add credits at "
+                            "console.anthropic.com → Settings → Billing.)"
+                        )
+                    else:
+                        st.error(f"Could not get an AI explanation (API error {exc.status_code}).")
                 except Exception as exc:  # noqa: BLE001 -- surfaced to the viewer on purpose
                     st.error(f"Could not get an AI explanation: {exc}")
 
